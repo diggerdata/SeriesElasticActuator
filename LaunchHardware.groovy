@@ -243,7 +243,7 @@ def base =DeviceManager.getSpecificDevice( "HephaestusArm",{
 	//If the device does not exist, prompt for the connection
 	
 	MobileBase m = BowlerStudio.loadMobileBaseFromGit(
-		"https://github.com/madhephaestus/SeriesElasticActuator.git",
+		"https://github.com/StrokeRehabilitationRobot/SeriesElasticActuator.git",
 		"HIDarm.xml"
 		)
 	if(m==null)
