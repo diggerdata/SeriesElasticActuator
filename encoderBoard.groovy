@@ -51,8 +51,45 @@ CSG makeEncoder(){
 				.toZMax()
 				.toYMin()
 				.movey(-chipToShortside-cornerOffset)
+				
+	CSG chipCkearence = new Cube(14.5,16.3,1.9).toCSG()
+					.toXMin()
+					.toYMin()
+					.toZMin()
+					
+					.movey(-3.5)
+					.movex(-6.5)
+	double boardEdgeX = 23.14
+	double boardEdgeY = 15.86
+	CSG servoHeader = new Cube(12.5,8,2.5).toCSG()
+					.toXMax()
+					.toYMin()
+					.toZMin()
+					.movex(9.5-boardEdgeX)
+					.movey(-36.57+boardEdgeY)
+	CSG hdmiHeader = new Cube(7.1,11.4,3.29).toCSG()
+					.toXMax()
+					.toYMin()
+					.toZMin()
+					.movex(9.8-boardEdgeX)
+					.movey(-25.7+boardEdgeY)
+	CSG loadHeader = new Cube(11.2,10,3.54).toCSG()
+					.toXMax()
+					.toYMin()
+					.toZMin()
+					.movex(11.72-boardEdgeX)
+					.movey(-12.25+boardEdgeY)				
+	chipCkearence=chipCkearence.union([servoHeader,hdmiHeader,loadHeader])
+	
 	CSG bolt =new Cylinder(mountHoleRadius,mountHoleRadius,16,(int)30).toCSG() // a one line Cylinder
 							.movez(-5)
+							.union(
+								new Cylinder(	mountHoleRadius+printerOffset.getMM(),
+											mountHoleRadius+printerOffset.getMM(),
+											PCBsurfaceTobearing,(int)30).toCSG() 
+											.movez(-PCBsurfaceTobearing)
+								)
+	/*												
 	CSG boardCad = (CSG)ScriptingEngine
 	                    .gitScriptRun(
                                 "git@github.com:StrokeRehabilitationRobot/SeriesElasticActuator.git", // git location of the library
@@ -63,11 +100,12 @@ CSG makeEncoder(){
                         .movex(-10.8)
                         .movey(10.4)
 
-
-	board=magnet.union(bolt
+                        .rotz(-180)
+      */                  
+ 	CSG boltSet = bolt
 					.movex(chipToLongSide)
 					.movey(chipToShortside)
-					)
+					
 			.union(bolt
 					.movex(-chipToLongSide)
 					.movey(chipToShortside)
@@ -80,14 +118,19 @@ CSG makeEncoder(){
 					.movex(-chipToLongSide)
 					.movey(-chipToShortside)
 					)
-			.union(magnet)
-			.union(bearing)
-			.union(bearingCutterSlot)
-			//.union(boardCad.minkowski(new Cube(2,2,0.1).toCSG().toZMax()))
-			.union(boardCad)
-			.setParameter(printerOffset)
-			.setRegenerate({makeEncoder()})
 
+	board=CSG.unionAll([
+				magnet,
+				boltSet,
+				boltSet.rotz(90),
+				bearing,
+				bearingCutterSlot,
+				//boardCad.minkowski(new Cube(2,2,0.01).toCSG().toZMax()),
+				//boardCad,
+				chipCkearence]	)
+				.setParameter(printerOffset)
+				.setRegenerate({makeEncoder()})
+			
 	double shadowy = -chipToShortside-cornerOffset-3
 	CSG cordCutOut = new Cube(	6,// X dimention
 				6,// Y dimention
@@ -95,9 +138,15 @@ CSG makeEncoder(){
 				).toCSG()
 				.toZMin()
 				.toXMax()
-				.movex(-bearing.getMaxX()-2)
+				.movex(-30)
+	cordCutOut=cordCutOut.movey(6)
+				.union(
+					cordCutOut.movey(-13)
+					)
+	
 	board=board
 		.union(	cordCutOut)
+		//.union(fullBezier)
 		.movez(PCBsurfaceTobearing)
 
 	if (args ==  null)	return board
