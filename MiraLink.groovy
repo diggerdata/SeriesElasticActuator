@@ -15,7 +15,7 @@ if(args == null){
 		//If the device does not exist, prompt for the connection
 		
 		MobileBase m = BowlerStudio.loadMobileBaseFromGit(
-			"https://github.com/osh1996/SeriesElasticActuator.git",
+			"https://github.com/StrokeRehabilitationRobot/SeriesElasticActuator.git",
 			"seaArm.xml"
 			)
 		if(m==null)
