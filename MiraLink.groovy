@@ -25,7 +25,7 @@ if(args == null){
 	})
 	DHParameterKinematics arm = base.getAllDHChains().get(0)
 	ArrayList<DHLink> dhLinks=arm.getChain().getLinks();
-	DHLink dh = dhLinks.get(0);
+	DHLink dh = dhLinks.get(2);
 	args=[dh,(int)2] // args = [dh_parameters, joint #]  !!!Pass extra parameters into here if I need them from external script
 }
 
@@ -43,6 +43,10 @@ if(args == null){
 }
 
 CSG DummyStandInForLink = new Cube(20).toCSG()
+
+CSG DummyStandInForLink2 = new Cube(40).toCSG()
 //here i need to define the shape(s) that will result in a new link for the arm
 
-return [moveDHValues(DummyStandInForLink,args[0])]
+CSG movedCube =moveDHValues(DummyStandInForLink2,args[0])
+
+return [movedCube ,DummyStandInForLink]
