@@ -934,7 +934,7 @@ ICadGenerator c= new ICadGenerator(){
 			// add link here
 			def parts = ScriptingEngine
 	                    .gitScriptRun(
-                                "https://github.com/osh1996/SeriesElasticActuator.git", // git location of the library
+                                "https://github.com/StrokeRehabilitationRobot/SeriesElasticActuator.git", // git location of the library
 	                              "MiraLink.groovy" , // file to load
 	                              [dh,linkIndex]// no parameters (see next tutorial)
                         )
