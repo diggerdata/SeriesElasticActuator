@@ -993,13 +993,13 @@ ICadGenerator c= new ICadGenerator(){
 			
 		}else if(linkIndex==2){
 			// add link here
-			def parts = ScriptingEngine
+			def p = ScriptingEngine
 	                    .gitScriptRun(
                                 "https://github.com/StrokeRehabilitationRobot/SeriesElasticActuator.git", // git location of the library
 	                              "MiraLink.groovy" , // file to load
 	                              [dh,linkIndex]// no parameters (see next tutorial)
                         )
-                for(CSG DummyStandInForLink:parts)
+                for(CSG DummyStandInForLink:p)
 				add(csg,DummyStandInForLink,dh.getListener(),"dummyLink")
 		}else{
 			// load the end of limb
