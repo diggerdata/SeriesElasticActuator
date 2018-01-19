@@ -1,5 +1,5 @@
 import com.neuronrobotics.bowlerstudio.creature.ICadGenerator;
-import com.neuronrobotics.bowlerstudio.creature.CreatureLab;
+
 import org.apache.commons.io.IOUtils;
 import com.neuronrobotics.bowlerstudio.vitamins.*;
 import eu.mihosoft.vrl.v3d.parametrics.*;
@@ -22,6 +22,8 @@ ICadGenerator c= new ICadGenerator(){
 	HashMap<String , HashMap<String,ArrayList<CSG>>> map =  new HashMap<>();
 	HashMap<String,ArrayList<CSG>> bodyMap =  new HashMap<>();
 	LengthParameter thickness 				= new LengthParameter("Material Thickness",11.88,[10,1])
+	LengthParameter ballRadius = new LengthParameter("ballRadius",(1.1*25.4)/2,[20,0.001])
+	LengthParameter ballCenter = new LengthParameter("ballCenter",30.72,[20,0.001])
 	LengthParameter printerOffset 			= new LengthParameter("printerOffset",0.5,[1.2,0])
 	StringParameter boltSizeParam 			= new StringParameter("Bolt Size","M5",Vitamins.listVitaminSizes("capScrew"))
 	StringParameter bearingSizeParam 			= new StringParameter("Encoder Board Bearing","R8-60355K505",Vitamins.listVitaminSizes("ballBearing"))
@@ -99,7 +101,7 @@ ICadGenerator c= new ICadGenerator(){
 				.movex(-gearDistance)
 	CSG gearB = Vitamins.get( "vexGear",gearBParam.getStrValue());
 	CSG bolt = Vitamins.get( "capScrew",boltSizeParam.getStrValue());
-	CSG gearStandoff = new Cylinder(gearA.getMaxY(),motorBackSetDistance+washerThickness).toCSG()
+	CSG gearStandoff = new Cylinder(gearA.getMaxY(),gearA.getMaxY(),motorBackSetDistance+washerThickness,20).toCSG()
 						.toZMax()
 						.movex(-gearDistance)
 	CSG gearKeepaway = gearStandoff.toolOffset(1).getBoundingBox()
@@ -144,7 +146,7 @@ ICadGenerator c= new ICadGenerator(){
      CSG encoder1 =   encoderSimple.union(loadCellCutoutLocal).movez(-encoderToEncoderDistance)
 	CSG screwHole = new Cylinder(screwDrillHole,screwDrillHole,screwLength,(int)8).toCSG() // a one line Cylinder
 					.toZMax()
-     CSG screwHoleKeepaway = new Cylinder(screwthreadKeepAway,screwthreadKeepAway,50+(washerThickness*4),(int)8).toCSG() // a one line Cylinder
+     CSG screwHoleKeepaway = new Cylinder(screwthreadKeepAway,screwthreadKeepAway,100+(washerThickness*4),(int)8).toCSG() // a one line Cylinder
      					.toZMin()
 	CSG screwHead= new Cylinder(boltHeadKeepaway/2,boltHeadKeepaway/2,screwLength*2,(int)8).toCSG() // a one line Cylinder
 						.movez(screwHoleKeepaway.getMaxZ())
@@ -203,7 +205,7 @@ ICadGenerator c= new ICadGenerator(){
 									.union(wrenchKeepaway)
 									.rotz(90)
 									)
-									.movez(-30)
+									.movez(-58)
 	CSG armScrews = screwWithNut.rotz(-45)
 					.movey(-screwCenterLine+screwHeadKeepaway)
 					.union(screwWithNut.rotz(45)
@@ -249,7 +251,10 @@ ICadGenerator c= new ICadGenerator(){
             .rotx(-90)
             //.movey(-drivenLinkWidth/2)
             .movez(1)
+            
      CSG standoffBLock=null
+     ArrayList<CSG> manipulationParts = []
+     CSG manipulationBall=null
 	/**
 	 * Gets the all dh chains.
 	 *
@@ -354,7 +359,7 @@ ICadGenerator c= new ICadGenerator(){
 						.cornerRadius(cornerRadius)
 						.toCSG()
 						.toZMin()
-						.difference([keepawayBottomY,keepawayBottomX])
+						.difference([keepawayBottomY])
 		/*
 		CSG sidePlate = new Cube( basexLength+(keepAwayDistance*2)+encoderKeepawayDistance,
 							1.0,
@@ -379,25 +384,29 @@ ICadGenerator c= new ICadGenerator(){
 		sidePlate=sidePlate.difference(strapSlots)	
 		*/							
 		CSG screws = screwSet
-					.movez(topLevel)
+					//.movez(topLevel)
 						
-		CSG screwAcross = screwTotal.rotx(90)
+		CSG screwAcross = screwTotal
+						.movez(-topLevel)
+						.rotx(90)
 						.movez(topLevel/2)
 
-		screwAcross=screwAcross.union(
-				screwAcross
-					.movez(topLevel/2-(keepAwayDistance/2+screwHeadKeepaway)+2)
-					.movex(baseShape.getMaxX()-(keepAwayDistance/2+screwHeadKeepaway)+3)
-			).union(
-				screwAcross
-					
-					.movex(baseShape.getMinX()+(keepAwayDistance/2+screwHeadKeepaway))
-			).union(
-				screwAcross
-					.movez(topLevel/2-(keepAwayDistance/2+screwHeadKeepaway))
-					.movex(screwHeadKeepaway)
-			)	
+		screwAcross=CSG.unionAll([
+			//screwAcross,// middle bolt
+			screwAcross.movez(topLevel/2-(keepAwayDistance/2+screwHeadKeepaway))// Frontmost bolt
+					 .movex(baseShape.getMaxX()-(keepAwayDistance/2+screwHeadKeepaway)-7-printerOffset.getMM()),
+			//screwAcross.movex(baseShape.getMinX()+(keepAwayDistance/2+screwHeadKeepaway)), Back most bolt
+			screwAcross.movez(topLevel/2-(keepAwayDistance/2+screwHeadKeepaway))
+						.movex(screwHeadKeepaway)			
+		])
 		CSG bottomScrews = screwTotal.rotx(180)
+						.union(tmpNut
+							.toZMax()
+							.movez(-10)
+							.union(tmpNut)
+							.hull()
+							.makeKeepaway(printerOffset.getMM())
+							)
 		// Originally calculated, fixed to make sure maunfactured parts mesh
 		//Bottom Bolt hole pattern x= 97.78700180053711 y = 77.5 inset = 9.75
 		//double inset = (keepAwayDistance/2+screwHeadKeepaway)
@@ -423,37 +432,61 @@ ICadGenerator c= new ICadGenerator(){
 							bottomScrews
 								.movey(-screwY/2)
 						)
-						.movex(baseShape.getMaxX() - inset)				
+						.movex(baseShape.getMaxX() - inset)
+						.movez(topLevel)				
 		baseShape = baseShape.difference([bottomScrewSet,screwAcross])	
-		CSG nucleoBoard = nucleo.get(0)
+		double boardKeepaway =50
+		CSG nucleoBoard = nucleo.get(0).movey(-boardKeepaway)
 		double baseBackSet = 	-baseShape.getMaxX()+keepAwayDistance+encoderKeepawayDistance
 		double spacing = 75
 
 		double nucleoMountPlacement = spacing+baseBackSet+nucleoBoard.getMaxX()
-		CSG boxCut = new Cube((workcellSize/2)+nucleoMountPlacement,workcellSize,thickness.getMM()*2).toCSG()
+		CSG boxCut = new Cube((workcellSize/2)+nucleoMountPlacement+boardKeepaway,workcellSize,thickness.getMM()*2).toCSG()
 					.toXMax()
 					.movex(workcellSize/2)
-
+		manipulationParts.clear()
+		def parts =(ArrayList<CSG>)ScriptingEngine
+					 .gitScriptRun(
+            "https://github.com/WPIRoboticsEngineering/RBELabCustomParts.git", // git location of the library
+            "3001TrackingObjects.groovy" , // file to load
+            null// no parameters (see next tutorial)
+            ) 
+          manipulationBall=parts.get(0)
+		          		.movez(-ballCenter.getMM())
+		            		.roty(90) 
+		manipulationParts.addAll(parts.collect{
+            	it.movez(-ballCenter.getMM())
+            	.roty(90)            	
+			.transformed(tipatHome)
+            })
 		
-		CSG tipHole =new Cylinder(10,10,thickness.getMM()*3,(int)90).toCSG()
-					.movez(-thickness.getMM()*1.5)
-					.roty(90)
-					.transformed(tipatHome)
+		//CSG tipHole =new Cylinder(10,10,thickness.getMM()*3,(int)90).toCSG()
+		//			.movez(-thickness.getMM()*1.5)
+					
 		double footingWidth = boardY/4
 		CSG footing =new Cube(workcellSize,footingWidth,thickness.getMM()).toCSG()
 		
-		double etchWith = 0.1
-		CSG etchX =new Cube((workcellSize/2)-2,etchWith,thickness.getMM()).toCSG()
-					.toXMin()
-		CSG etchY =new Cube(etchWith,footingWidth-2,thickness.getMM()).toCSG()
-		def etchParts = [etchX,etchY]
+		double etchWith =0.5
+		etchX = (workcellSize/2)-2
+		//CSG etchX =new Cube((workcellSize/2)-2,etchWith,thickness.getMM()).toCSG()
+		//			.toXMin()
+		//CSG etchY =new Cube(etchWith,footingWidth-2,thickness.getMM()).toCSG()
+		def etchParts = []
 		double gridDimention =25
-		for(double i=-150;i<151;i+=gridDimention){
-			etchParts.add(etchX.movey(i))
+		
+		CSG etch =new Cube(gridDimention-etchWith,gridDimention-etchWith,thickness.getMM()).toCSG()
+					.difference(new Cube(10,10,thickness.getMM()).toCSG())
+
+		etch=etch
+					.toXMin()
+					.toYMin()
+		int x =0
+		for(double i=-150;i<151;i+=gridDimention*2){
+			for(double j=0;j<etchX;j+=gridDimention){
+				etchParts.add(etch.movex(j).movey(i+(x++%2==0?gridDimention:0)))
+			}
 		}
-		for(double i=0;i<etchX.getMaxX();i+=gridDimention){
-			etchParts.add(etchY.movex(i))
-		}
+		
 		def cameraParts = getCameraMount()
 		CSG basePlate = footing
 						.toZMax()
@@ -465,13 +498,12 @@ ICadGenerator c= new ICadGenerator(){
 						)
 						.difference(	bottomScrewSet.movex(baseBackSet))
 						.intersect(boxCut)
-						.difference(tipHole)
+						.difference(manipulationParts)
 						.difference(cameraParts)
 						.difference(etchParts)
 		
 		basePlateUpper=basePlate.intersect(footing)
-		basePlateLower=basePlate.difference(footing)
-						/*
+		basePlateLower=basePlate.difference(footing)	/*
 		CSG sidePlateA=sidePlate
 				.difference(screwAcross)
 				.difference(screwAcross.movez(sidePlateclearenceHeight))
@@ -510,18 +542,26 @@ ICadGenerator c= new ICadGenerator(){
 						.rotx(-90)
 						.toZMin()
 			})
+		
 		basePlateUpper.setManufacturing({ toMfg ->
-				return toMfg
+				p= toMfg
 						.toXMin()
 						.toYMin()
 						.toZMin()
+				p.addExportFormat("svg")
+				//Transform t=new Transform()
+				return p
 			})
 		basePlateLower.setManufacturing({ toMfg ->
-			return toMfg
-					.toXMin()
-					.toYMin()
-					.toZMin()
-		})
+				p= toMfg
+						.toXMin()
+						.toYMin()
+						.toZMin()
+				p.addExportFormat("svg")
+				//Transform t=new Transform()
+				return p
+			})
+		
 		/*
 		sidePlateA.setManufacturing({ toMfg ->
 				return toMfg
@@ -547,18 +587,38 @@ ICadGenerator c= new ICadGenerator(){
 		//if(showRightPrintedParts)attachmentParts.add(baseShapeB)
 		//if(showRightPrintedParts)attachmentParts.add(basePlate)
 		//if(showLeftPrintedParts)attachmentParts.add(baseCap)
+		for (int i=0;i<cameraParts.size();i++){
+			CSG p = cameraParts.get(i)
+			p.addExportFormat("svg")
+			
+		}
 		cameraParts.forEach{
+			it.addExportFormat("svg")
 			add(attachmentParts,it,null,"cameraStand_SVG")
 		}
+		basePlateUpper.addExportFormat("svg")
+		basePlateLower.addExportFormat("svg")
 		add(attachmentParts,baseShapeA,null,"baseLeft")
 		add(attachmentParts,baseShapeB,null,"baseRight")
 		add(attachmentParts,basePlateUpper,null,"basePlateEtching_SVG")
 		add(attachmentParts,basePlateLower,null,"basePlateCut_SVG")
 		add(attachmentParts,baseCap,null,"baseCap")
+		add(attachmentParts,manipulationParts.get(0),null,"colorObject")
+		add(attachmentParts,manipulationParts.get(1),null,"coaster")
+		add(attachmentParts,manipulationParts.get(2),null,"calibrationObject")
 		return attachmentParts;
 	}
 	@Override 
 	public ArrayList<CSG> generateCad(DHParameterKinematics sourceLimb, int linkIndex) {
+		def parts =(ArrayList<CSG>)ScriptingEngine
+					 .gitScriptRun(
+            "https://github.com/WPIRoboticsEngineering/RBELabCustomParts.git", // git location of the library
+            "3001TrackingObjects.groovy" , // file to load
+            null// no parameters (see next tutorial)
+            ) 
+          manipulationBall=parts.get(0)
+		          		.movez(-ballCenter.getMM())
+		            		.roty(90) 
 		//return new ArrayList<CSG>()
 		//Creating the horn
 		ArrayList<DHLink> dhLinks=sourceLimb.getChain().getLinks();
@@ -656,6 +716,7 @@ ICadGenerator c= new ICadGenerator(){
 						.rotx(180)
 						.movez(hornOffset)
 						.movex(-gearDistance)
+						//.toolOffset(-printerOffset.getMM()) //this offset applied in the servo horn dimentions JSON
 			servoReference=servoReference
 				.toZMax()
 				.movez(servoNub-centerLinkToBearingTop)			
@@ -669,10 +730,10 @@ ICadGenerator c= new ICadGenerator(){
 						)
 						.movez(washerThickness)	
 			horn=horn.movez(gearPlacementVSMotor)
-			for(int i=0;i<4;i++){
+			for(int i=0;i<((myGearA.getMaxZ()/hornOffset)+1);i++){
 				myGearA=myGearA
 					.difference(horn
-								.movez(hornOffset*i)
+								.movez((hornOffset-printerOffset.getMM())*i)
 								)
 			}
 			// special recess for measured difference
@@ -926,9 +987,9 @@ ICadGenerator c= new ICadGenerator(){
 			if(showVitamins)add(csg,thirdPlusLinkServo,dh.getListener(),"servo")
 			if(showVitamins)add(csg,linkEncoder,dh.getListener(),"encoder")
 			if(showVitamins)add(csg,otherEncoder,dh.getListener(),"otherEncoder")
-			if(showRightPrintedParts)add(csg,sidePlateWithServo,dh.getListener(),"sidePlate")
-			if(esp.size()>1)if(showLeftPrintedParts)add(csg,esp.get(1),dh.getListener(),"encoderPlate")
-			if(showLeftPrintedParts)add(csg,baseEncoderCap,dh.getListener(),"baseEncoderCap")
+			if(showRightPrintedParts)add(csg,sidePlateWithServo,dh.getListener(),"sidePlate"+linkIndex)
+			if(esp.size()>1)if(showLeftPrintedParts)add(csg,esp.get(1),dh.getListener(),"encoderPlate"+linkIndex)
+			if(showLeftPrintedParts)add(csg,baseEncoderCap,dh.getListener(),"baseEncoderCap"+linkIndex)
 			
 		}else if(linkIndex==2){
 			// add link here
@@ -945,6 +1006,50 @@ ICadGenerator c= new ICadGenerator(){
 			// Target point
 			handMountPart = handMount()
 			CSG tipCalibrationPart= tipCalibration()
+			File gripBaseFile = ScriptingEngine.fileFromGit(
+				"https://github.com/madhephaestus/SeriesElasticActuator.git",
+				"gripper/all.stl");
+				/*
+			File gripLeftFile = ScriptingEngine.fileFromGit(
+				"https://github.com/madhephaestus/SeriesElasticActuator.git",
+				"gripper/left.stl");
+			// Load the .CSG from the disk and cache it in memory
+			File gripRightFile = ScriptingEngine.fileFromGit(
+				"https://github.com/madhephaestus/SeriesElasticActuator.git",
+				"gripper/right.stl");
+				*/
+			// Load the .CSG from the disk and cache it in memory
+			double boltPlateThickness = 6
+			CSG cup =new Cylinder(ballRadius.getMM()+2,15).toCSG() // a one line Cylinder
+			CSG box = cup.getBoundingBox()
+					.movez(7)
+					.movex(2.5)
+			CSG bolt =new Cylinder(4.3/2,70).toCSG() // a one line Cylinder		
+			bolt = bolt.union (bolt.movex(-12))
+					.movex(-ballRadius.getMM()-8.75)
+			
+			mounStrip = new Cube(	40,// X dimention
+						13.2,// Y dimention
+						boltPlateThickness//  Z dimention
+						).toCSG()
+						.toXMax()
+						.toZMax()
+						.movez(cup.getMaxZ())
+			cup = cup.intersect(box)
+					.union(mounStrip )
+					.difference(manipulationBall.makeKeepaway(1))
+					.difference(bolt)
+			
+			//CSG gripBase  = Vitamins.get(gripBaseFile)	
+			//				.movex(-56.75-ballRadius.getMM()-8+ballCenter.getMM())
+			//				.movez(-2.25)		
+			//				.movey(-3.4)	
+			//CSG gripLeft  = Vitamins.get(gripLeftFile)
+			//CSG gripRight  = Vitamins.get(gripRightFile)
+			
+			
+						//.union([gripLeft,gripRight])
+						
 			
 			double plateThickenss = (-handMountPart.getMinX()+handMountPart.getMaxX())
 			double platewidth  = (-handMountPart.getMinY()+handMountPart.getMaxY())
@@ -978,28 +1083,37 @@ ICadGenerator c= new ICadGenerator(){
 										.intersect(handMountPart)
 										.hull()
 										.toolOffset(printerOffset.getMM()*2))
-								.difference(myArmScrews,springMoved.toolOffset(2)	)
+								.difference(myArmScrews.movex(-45),springMoved.toolOffset(2)	)
 			}catch(Exception ex){
-				BowlerStudio.printStackTrace(ex)
+				//BowlerStudio.printStackTrace(ex)
 			}				
 			tipCalibrationPart.setColor(javafx.scene.paint.Color.PINK);
 			handMountPart.setColor(javafx.scene.paint.Color.WHITE);
 			
-			tipCalibrationPart.setManufacturing({ toMfg ->
-				return toMfg
-					.rotx(90)
-					.roty(90)
-					.toZMin()
-					.toXMin()
-			})
 			handMountPart.setManufacturing({ toMfg ->
 				return toMfg
 					.rotx(90)
 					.toXMin()
 					.toZMin()
 			})
-			if(showRightPrintedParts)add(csg,tipCalibrationPart,dh.getListener(),"calibrationTip")
+			cupr=cup.mirrorz()
+			cup.setManufacturing({ toMfg ->
+				return toMfg
+					.rotx(180)
+					.toZMin()
+			})
+			cupr.setManufacturing({ toMfg ->
+				return toMfg
+					.toZMin()
+			})
+			//if(showRightPrintedParts)add(csg,tipCalibrationPart,dh.getListener(),"calibrationTip")
 			if(showLeftPrintedParts)add(csg,handMountPart,dh.getListener(),"lastLink")
+			//add(csg,gripBase,dh.getListener(),"gripBase")
+			//add(csg,manipulationBall,dh.getListener(),"gripBall")
+			add(csg,cup,dh.getListener(),"cup")
+			add(csg,cupr,dh.getListener(),"cupr")
+			//add(csg,gripLeft,dh.getListener(),"gripLeft")
+			//add(csg,gripRight,dh.getListener(),"gripRight")
 		}
 		
 		myGearB.setManufacturing({ toMfg ->
@@ -1083,7 +1197,7 @@ ICadGenerator c= new ICadGenerator(){
 								.movey(-boltShortDistance/2)
 					)
 		// offset the claw mount so the tip is at the kinematic center
-		mountPlate=mountPlate.movex(-54.4)
+		mountPlate=mountPlate.movex(-54.4-ballRadius.getMM()-8)
 		return mountPlate
 	}
 	private CSG springBlockPin(double thickness){
@@ -1263,17 +1377,26 @@ ICadGenerator c= new ICadGenerator(){
 	private ArrayList<CSG> getCameraMount(){
 		//cameraLocationCSG
 		
-		double cameraMountSize = 45+5+thickness.getMM()
+		double cameraMountSize = 85+5+thickness.getMM()
 		Log.enableSystemPrint(true)
 		println "Camera at "+cameraLocationNR
 		double cameraBolt = (workcellSize-cameraMountSize)/2
+		/*
 		CSG camera = (CSG) ScriptingEngine
 					 .gitScriptRun(
 			            "https://github.com/madhephaestus/SeriesElasticActuator.git", // git location of the library
 			            "camera.groovy" , // file to load
 			            null// create a keepaway version
 			            )
-		camera = camera.union(camera.rotz(90))
+		*/
+		CSG cameraBase = new Cube(6.5,52,thickness.getMM()).toCSG()
+			.toZMax()   
+			.movex(9+35/2)
+		CSG camera = new Cylinder(35/2,35/2,	  thickness.getMM()    ,(int)30).toCSG()   
+		.toZMax()
+		.union(cameraBase)
+		
+		camera = camera
 			            .transformed(cameraLocationCSG)
 		CSG camerMount = new Cube(	cameraMountSize+5,
 								cameraMountSize+5,
@@ -1281,12 +1404,13 @@ ICadGenerator c= new ICadGenerator(){
 								.toZMax()
 								.transformed(cameraLocationCSG)
 								.difference(camera)
-		CSG camerMountLug = new Cube(	cameraMountSize,
+		CSG camerMountLug = new Cube(	45+5+thickness.getMM(),
 								thickness.getMM(),
-								30).toCSG()
+								45).toCSG()
 								.toYMax()
 								.movey(cameraMountSize/2)
 								.toZMin()
+								.movex(10)
 		CSG notch = new Cube(	thickness.getMM()).toCSG()
 								.toZMax()
 								.toYMax()		
@@ -1297,15 +1421,16 @@ ICadGenerator c= new ICadGenerator(){
 						.rotz(180)
 						.toXMax()
 						.movex(workcellSize/2)
+						.movex(-20)
 		CSG midLug = camerMountLug
 						.rotz(180)
 						.toXMin()
 						.movex(camerMount.getMaxX()+20)
 						.movez(cameraBolt)
 		CSG notches =  notch
-					.movex(10)
+					.movex(15)
 					.union(	notch
-							.movex(-10)	)
+							.movex(-15)	)
 		CSG bottomNotches = notches
 						.rotx(180)
 						.movex(cameraBolt)	
@@ -1317,14 +1442,16 @@ ICadGenerator c= new ICadGenerator(){
 		//boltSizeParam
 		CSG boltCutout = new Cube(boltMeasurments.outerDiameter,
 							thickness.getMM(),
-							30-thickness.getMM()).toCSG()
+							45-thickness.getMM()).toCSG()
 							.toZMin()
 							.union(new Cylinder(boltMeasurments.outerDiameter/2,
 											boltMeasurments.outerDiameter/2,
 											thickness.getMM(),(int)30).toCSG()
-											.toZMax(),
+											.toZMax()
+											,
 											nut
 							)
+							.movez(-5)
 								
 		boltCutout=boltCutout.movey(	-(cameraMountSize-thickness.getMM())/2				)
 				.union(boltCutout.movey(	(cameraMountSize-thickness.getMM())/2				))
@@ -1337,48 +1464,66 @@ ICadGenerator c= new ICadGenerator(){
 						baseLug
 						.union(midLug)
 						.hull()
-						,bottomNotches,topNotches)
+						,bottomNotches)
 					.difference(bottomBolts,topBolts)
-		
+					.difference(camerMount.hull())
+					.union(topNotches)
 		CSG bracketB = bracketA
 						.toYMax()
 						.movey(cameraMountSize/2)
 		camerMount=camerMount.difference(topBolts,bracketA,bracketB)
+		double cameraOffset = cameraMountSize+22
 		camerMount.setManufacturing({ toMfg ->
 				TransformNR step = cameraLocationNR.inverse()
 				Transform move = TransformFactory.nrToCSG(step)
-				return toMfg
+				p= toMfg
 						.transformed(move)
 						.toXMin()
 						.toYMin()
 						.toZMin()
+						.movex(-cameraOffset*1)
+				p.addExportFormat("svg")
+				return p
 		})
+		
 		bracketA.setManufacturing({ toMfg ->
-				return toMfg
+				p= toMfg
 						.rotx(90)
 						.toXMin()
 						.toYMin()
 						.toZMin()
+						.movex(-cameraOffset*2)
+				p.addExportFormat("svg")
+				return p
 		})
 		bracketB.setManufacturing({ toMfg ->
-				return toMfg
+				p= toMfg
 						.rotx(90)
 						.toXMin()
 						.toYMin()
 						.toZMin()
+						.movex(-cameraOffset*3-10)
+						.movey(-35)
+				p.addExportFormat("svg")
+				return p
 		})
 		bottomBolts.setManufacturing({ toMfg ->
 				return null
 		})
+		
 		//return [bottomNotches]
-		return [camerMount,bracketA,bracketB,bottomBolts]
+		return [camerMount,bracketA,bracketB,bottomBolts].collect{
+			it.addExportFormat("svg")
+			return it
+		}
+		
 	}
 
 	private add(ArrayList<CSG> csg ,CSG object, Affine dh , String name){
 		if(dh!=null)
 			object.setManipulator(dh);
 		csg.add(object);
-		BowlerStudioController.addCsg(object);
+		//BowlerStudioController.addCsg(object);
 		if(version[0]>0 || version[1]>=11){
 			println "Name API found"
 			object.setName(name)
